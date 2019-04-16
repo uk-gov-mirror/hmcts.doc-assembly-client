@@ -1,0 +1,48 @@
+package uk.gov.hmcts.reform.docassembly;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import uk.gov.hmcts.reform.docassembly.domain.DocAssemblyRequest;
+import uk.gov.hmcts.reform.docassembly.domain.DocAssemblyResponse;
+import uk.gov.hmcts.reform.docassembly.exception.DocumentGenerationFailedException;
+
+import java.util.Base64;
+
+@Component
+public class DocAssemblyClient {
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private final DocAssemblyApi docAssemblyApi;
+
+    @Autowired
+    public DocAssemblyClient(
+        DocAssemblyApi docAssemblyApi) {
+        this.docAssemblyApi = docAssemblyApi;
+    }
+
+    public DocAssemblyResponse generateOrder(String authorisation,
+                                             String serviceAuthorisation,
+                                             String templateId,
+                                             Object formPayload) {
+        DocAssemblyRequest docAssemblyRequest = buildRequest(templateId, formPayload);
+        try {
+            return docAssemblyApi.generateOrder(
+                docAssemblyRequest,
+                authorisation,
+                serviceAuthorisation);
+        } catch (Exception e) {
+            logger.error("Error while trying to generate an order with docAssembly");
+            throw new DocumentGenerationFailedException(e);
+        }
+    }
+
+    private DocAssemblyRequest buildRequest(String templateId, Object formPayload) {
+        String encodedTemplateId = Base64.getEncoder()
+            .encodeToString(templateId.getBytes());
+        return DocAssemblyRequest.builder()
+            .templateId(encodedTemplateId)
+            .formPayload(formPayload)
+            .build();
+    }
+}
